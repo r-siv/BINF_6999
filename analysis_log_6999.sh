@@ -82,4 +82,21 @@ fastqc 01Bb_S6_R1_001.trim.cat.downsampled.fastq -o fastqc_out/
 
 #download html results from output directory onto current local machine directory for viewing
 #this is done from a new terminal on the local machine
-scp rsivakum@graham.computecanada.ca:/home/rsivakum/scratch/6999/fastqc_out/*.html .
+scp rsivakum@graham.computecanada.ca:~/scratch/6999/fastqc_out/*.html .
+
+#check and load python module
+module spider python
+module load python
+
+#set up and activate virtual environment for installing multiqc through pip
+virtualenv --no-download ENV
+source ENV/bin/activate
+pip install --no-index --upgrade pip
+pip install multiqc
+
+#generate multiqc reports from downsampled fastq files in current directory
+multiqc .
+
+#download html results from output directory onto current local machine directory for viewing
+#this is done from a new terminal on the local machine
+scp rsivakum@graham.computecanada.ca:~/scratch/6999/multiqc_report.html .
