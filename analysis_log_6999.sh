@@ -100,3 +100,53 @@ multiqc .
 #download html results from output directory onto current local machine directory for viewing
 #this is done from a new terminal on the local machine
 scp rsivakum@graham.computecanada.ca:~/scratch/6999/multiqc_report.html .
+
+#upload unitas perl script (obtained from https://www.smallrnagroup.uni-mainz.de/software.html) to 6999 directory on cluster
+#this is done from a new terminal on the local machine
+scp unitas_1.7.0.zip rsivakum@graham.computecanada.ca:~/scratch/6999
+
+#unzip unitas script into current 6999 directory and change directories
+unzip unitas_1.7.0.zip
+cd unitas
+
+#check and load perl module
+module spider perl
+module load perl
+
+#trim adaptors, collapse and filter low complexity reads (default filter at 75% repeats for a sequence) automatically on 01Ba file
+perl unitas_1.7.0.pl -i ~/scratch/6999/01Ba_S13_R1_001.trim.cat.downsampled.fastq -s bos_taurus -trim ?
+#####
+#NOTE: Fraction of reads containing putative adapter sequence is low!
+#Continue nevertheless.
+#Clip most abundant sequence (0.85%): TCCCCGACGGGG-(N)x-3'... OK.
+#Total processed reads: 10000
+#Clipped reads: 126
+#10-50 nt: 126
+#NOTE: Fraction of clipped reads is low!
+#####
+#trim adaptors, collapse and filter low complexity reads automatically on 01Bb file
+perl unitas_1.7.0.pl -i ~/scratch/6999/01Bb_S6_R1_001.trim.cat.downsampled.fastq -s bos_taurus -trim ?
+#####
+#NOTE: Fraction of reads containing putative adapter sequence is low!
+#Continue nevertheless.
+#Clip most abundant sequence (2.15%): TAGATCCGAACT-(N)x-3'... OK.
+#Total processed reads: 10000
+#Clipped reads: 0
+#10-50 nt: 0
+#NOTE: Fraction of clipped reads is low!
+#####
+
+#note when using -trim ? option, different files are created so unsure if it should be performed (lines 117 & 128)
+
+#count number of annotated piRNA sequences from 01Bb file (#2 is untrimmed file version)
+grep ">" UNITAS_10-04-2022_01Bb_S13_R1_001.trim.cat.downsampled.fastq_#2/fasta/unitas.piRcandidates.fas | wc -l
+#there are 1600 annotated reads
+#count number of unannotated reads from this file
+grep ">" UNITAS_10-04-2022_01Bb_S13_R1_001.trim.cat.downsampled.fastq_#2/fasta/unitas.no-annotation.fas | wc -l
+#there are 3742 unannotated reads
+#count number of annotated piRNA sequences from 01Ba file (#2 is untrimmed file version)
+grep ">" UNITAS_10-04-2022_01Ba_S13_R1_001.trim.cat.downsampled.fastq_#2/fasta/unitas.piRcandidates.fas | wc -l
+#there are 1021 annotated reads
+#count number of unannotated reads from this file
+grep ">" UNITAS_10-04-2022_01Ba_S13_R1_001.trim.cat.downsampled.fastq_#2/fasta/unitas.no-annotation.fas | wc -l
+#there are 5473 unannotated reads
