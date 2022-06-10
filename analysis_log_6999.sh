@@ -150,3 +150,8 @@ grep ">" UNITAS_10-04-2022_01Ba_S13_R1_001.trim.cat.downsampled.fastq_#2/fasta/u
 #count number of unannotated reads from this file
 grep ">" UNITAS_10-04-2022_01Ba_S13_R1_001.trim.cat.downsampled.fastq_#2/fasta/unitas.no-annotation.fas | wc -l
 #there are 5473 unannotated reads
+
+#download whole folder to display html results from both 01Ba and 01Bb directories onto current local machine directory
+#this is done from a new terminal on the local machine
+scp -r rsivakum@graham.computecanada.ca:~/scratch/6999/unitas/UNITAS_10-04-2022_01Bb_S6_R1_001.trim.cat.downsampled.fastq_#2 .
+scp -r rsivakum@graham.computecanada.ca:~/scratch/6999/unitas/UNITAS_10-04-2022_01Ba_S13_R1_001.trim.cat.downsampled.fastq_#2 .
