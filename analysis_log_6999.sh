@@ -23,6 +23,9 @@ tar -tf bov_sperm_concat_trimmed.fastq.tar.gz | wc -l
 #lower case letter after collection type represents technical replicate (may not always be there)
 #ex: 01Ba_S13_R1_001.trim.cat -> bull 1, collection B, technical replicate a, sample 13
 #ex: 04A_S12_R1_001.trim.cat -> bull 4, collection A, sample 12
+#files starting with I are IVF-produced embryos
+#files starting with P are parthenogenesis-produced embryos
+#DNA files are other extra files run on same flow cell
 
 #extract first 2 files from archive
 tar -zxvf bov_sperm_concat_trimmed.fastq.tar.gz 01Bb_S6_R1_001.trim.cat
