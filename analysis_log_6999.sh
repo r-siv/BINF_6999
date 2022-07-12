@@ -29,14 +29,15 @@ tar -tf bov_sperm_concat_trimmed.fastq.tar.gz | wc -l
 #files starting with P are parthenogenesis-produced embryos
 #DNA files are other extra files run on same flow cell
 
-#extract first 2 files from archive
-tar -zxvf bov_sperm_concat_trimmed.fastq.tar.gz 01Bb_S6_R1_001.trim.cat
-tar -zxvf bov_sperm_concat_trimmed.fastq.tar.gz 01Ba_S13_R1_001.trim.cat
+#extract 3 files from archive
+tar -xvf bov_sperm_concat_trimmed.fastq.tar.gz 01Bb_S6_R1_001.trim.cat 01Ba_S13_R1_001.trim.cat 24A_S44_R1_001.trim.cat
 #read counts
 grep "@" 01Bb_S6_R1_001.trim.cat | wc -l
 #there are 3419851 reads in this file
 grep "@" 01Ba_S13_R1_001.trim.cat | wc -l
 #there are 9835594 reads in this file
+grep "@" 24A_S44_R1_001.trim.cat | wc -l
+#there are 2306411 reads in this file
 
 #check and load seqtk module for randomly downsampling 10k reads
 module spider seqtk
