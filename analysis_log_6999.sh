@@ -19,6 +19,8 @@ tar -tf bov_sperm_concat_trimmed.fastq.tar.gz
 tar -tf bov_sperm_concat_trimmed.fastq.tar.gz | wc -l
 #there are 44 sample files total (sample index indicated by number after letter S)
 #files starting with 01 to 25 (bull id) are all bull sRNA files to be used
+#bulls 01-14 are low fertility
+#bulls 15-24 are high fertility
 #capitalized letter after bull id represents collection type
 #lower case letter after collection type represents technical replicate (may not always be there)
 #ex: 01Ba_S13_R1_001.trim.cat -> bull 1, collection B, technical replicate a, sample 13
@@ -30,7 +32,6 @@ tar -tf bov_sperm_concat_trimmed.fastq.tar.gz | wc -l
 #extract first 2 files from archive
 tar -zxvf bov_sperm_concat_trimmed.fastq.tar.gz 01Bb_S6_R1_001.trim.cat
 tar -zxvf bov_sperm_concat_trimmed.fastq.tar.gz 01Ba_S13_R1_001.trim.cat
-
 #read counts
 grep "@" 01Bb_S6_R1_001.trim.cat | wc -l
 #there are 3419851 reads in this file
