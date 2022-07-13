@@ -37,7 +37,7 @@ mv *.cat testing_data
 
 #change directories and see read counts for all test files
 cd testing_data
-for file in *; do grep "@" $file | wc -l; done
+for file in *; do echo "$file"; grep "@" $file | wc -l; done
 #there are 3419851 reads in 01Bb_S6_R1_001.trim.cat
 #there are 9835594 reads in 01Ba_S13_R1_001.trim.cat
 #there are 2306411 reads in 24A_S44_R1_001.trim.cat
@@ -46,13 +46,10 @@ for file in *; do grep "@" $file | wc -l; done
 module spider seqtk
 module load seqtk
 
-#downsampling both files and checking for downsampling
-seqtk sample 01Ba_S13_R1_001.trim.cat 10000 > 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-grep "@" 01Ba_S13_R1_001.trim.cat.downsampled.fastq | wc -l
-#10000 reads found
-seqtk sample 01Bb_S6_R1_001.trim.cat 10000 > 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-grep "@" 01Bb_S6_R1_001.trim.cat.downsampled.fastq | wc -l
-#10000 reads found
+#randomly downsample all files and check for correct read numbers
+for file in *; do seqtk sample $file 10000 > $file.down.fastq; done
+for file in *.fastq; do echo "$file"; grep "@" $file | wc -l; done
+#10000 reads found in all newly downsampled files
 
 #check and load fastqc module
 module spider fastqc
