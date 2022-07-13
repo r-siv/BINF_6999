@@ -146,6 +146,8 @@ done
 #there are 1600 piRNA reads in 01Bb_S6_R1_001.trim.cat
 #there are 1806 piRNA reads in 24A_S44_R1_001.trim.cat
 
+#this still could be simplified
+
 #count number of unannotated reads from each file
 for group in *\#1; 
 do 
@@ -159,4 +161,42 @@ done
 #this is done from a new terminal on the local machine
 scp -r rsivakum@graham.computecanada.ca:~/scratch/6999/*\#1 .
 
+#copy unannotated files (will contain piRNA reads) from Unitas directories into testing directory
+for file in *\#1;
+do
+    cp $file/fasta/unitas.no-annotation.fas ./testing_data/$file.fas;
+done
 
+#run piRNA length filter on unannotated files
+for file in testing_data/U*;
+do
+    perl scripts/TBr2_length-filter.pl -i $file -o $file""_len"" -min 24 -max 32;
+done
+#for UNITAS_12-07-2022_01Ba_S13_R1_001.trim.cat.down.fastq_#1.fas
+#Found 1560 sequences < 24 nt.
+#Found 1124 sequences > 32 nt.
+#Found 2789 sequences from 24-32 nt.
+#for UNITAS_12-07-2022_01Bb_S6_R1_001.trim.cat.down.fastq_#1.fas
+#Found 936 sequences < 24 nt.
+#Found 603 sequences > 32 nt.
+#Found 2203 sequences from 24-32 nt.
+#for UNITAS_12-07-2022_24A_S44_R1_001.trim.cat.down.fastq_#1.fas
+#Found 1670 sequences < 24 nt.
+#Found 204 sequences > 32 nt.
+#Found 2686 sequences from 24-32 nt.
+
+#upload Bos taurus genome, repeatmasker annotation and ENSEMBL geneset files to main directory on cluster
+#this is done from a new terminal on the local machine
+scp GCF_002263795.2_ARS-UCD1.3_genomic.fna.gz bosTau7.fa.out.gz Bos_taurus.ARS-UCD1.2.106.chr.gtf.gz rsivakum@graham.computecanada.ca:~/scratch/6999/
+
+#unzip all the new Bos taurus files
+for file in *.gz;
+do
+    gunzip $file;
+done
+
+#run sRNAmapper on len files
+for file in testing_data/*_len;
+do
+    perl scripts/sRNAmapper.pl -input $file -genome GCF_002263795.2_ARS-UCD1.3_genomic.fna -alignments best;
+done
