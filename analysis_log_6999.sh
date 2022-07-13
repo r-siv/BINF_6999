@@ -12,7 +12,8 @@ cd scratch/
 mkdir 6999
 mv bov_sperm_concat_trimmed.fastq.tar.gz 6999/
 
-#list all files within tar archive
+#change directories and list all files within tar archive
+cd 6999/
 tar -tf bov_sperm_concat_trimmed.fastq.tar.gz
 
 #count files
@@ -30,16 +31,15 @@ tar -tf bov_sperm_concat_trimmed.fastq.tar.gz | wc -l
 #DNA files are other extra files run on same flow cell
 
 #extract 3 files from archive for testing
-tar -xvf bov_sperm_concat_trimmed.fastq.tar.gz 01Bb_S6_R1_001.trim.cat 01Ba_S13_R1_001.trim.cat 24A_S44_R1_001.trim.cat
+tar -xvf bov_sperm_concat_trimmed.fastq.tar.gz 01Ba_S13_R1_001.trim.cat 01Bb_S6_R1_001.trim.cat 24A_S44_R1_001.trim.cat
 #make new testing directory and move the newly extracted files into that
 mkdir testing_data
 mv *.cat testing_data
 
-#change directories and see read counts for all test files
-cd testing_data
-for file in *; do echo "$file"; grep "@" $file | wc -l; done
-#there are 3419851 reads in 01Bb_S6_R1_001.trim.cat
+#check read counts for all test files
+for file in testing_data/*; do echo "$file"; grep "@" $file | wc -l; done
 #there are 9835594 reads in 01Ba_S13_R1_001.trim.cat
+#there are 3419851 reads in 01Bb_S6_R1_001.trim.cat
 #there are 2306411 reads in 24A_S44_R1_001.trim.cat
 
 #check and load seqtk module for randomly downsampling 10k reads
@@ -47,48 +47,18 @@ module spider seqtk
 module load seqtk
 
 #randomly downsample all files and check for correct read numbers
-for file in *; do seqtk sample $file 10000 > $file.down.fastq; done
-for file in *.fastq; do echo "$file"; grep "@" $file | wc -l; done
+for file in testing_data/*; do seqtk sample $file 10000 > $file.down.fastq; done
+for file in testing_data/*.fastq; do echo "$file"; grep "@" $file | wc -l; done
 #10000 reads found in all newly downsampled files
 
 #check and load fastqc module
 module spider fastqc
 module load fastqc
 
-#perform preliminary statistics with fastqc and move output into new directory
+#change directories and make new fastqc directory to perform preliminary fastqc statistics on all downsampled files. Move output into new directory
+cd ..
 mkdir fastqc_out
-fastqc 01Ba_S13_R1_001.trim.cat.downsampled.fastq -o fastqc_out/
-#####
-#Picked up JAVA_TOOL_OPTIONS: -Xmx2g
-#Started analysis of 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-#Approx 10% complete for 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-#Approx 20% complete for 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-#Approx 30% complete for 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-#Approx 40% complete for 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-#Approx 50% complete for 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-#Approx 60% complete for 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-#Approx 70% complete for 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-#Approx 80% complete for 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-#Approx 90% complete for 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-#Approx 100% complete for 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-#Analysis complete for 01Ba_S13_R1_001.trim.cat.downsampled.fastq
-#####
-fastqc 01Bb_S6_R1_001.trim.cat.downsampled.fastq -o fastqc_out/
-###
-#Picked up JAVA_TOOL_OPTIONS: -Xmx2g
-#Started analysis of 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-#Approx 10% complete for 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-#Approx 20% complete for 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-#Approx 30% complete for 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-#Approx 40% complete for 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-#Approx 50% complete for 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-#Approx 60% complete for 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-#Approx 70% complete for 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-#Approx 80% complete for 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-#Approx 90% complete for 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-#Approx 100% complete for 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-#Analysis complete for 01Bb_S6_R1_001.trim.cat.downsampled.fastq
-###
+for file in testing_data/*.fastq; do fastqc $file -o fastqc_out/; done
 
 #download html results from output directory onto current local machine directory for viewing
 #this is done from a new terminal on the local machine
@@ -100,20 +70,20 @@ module load python
 
 #set up and activate virtual environment for installing multiqc through pip
 virtualenv --no-download ENV
-source ENV/bin/activate
+source ENV/bin/activate #run this line everytime multiqc is to be performed (similar to module load) and leave virtual environment using deactivate
 pip install --no-index --upgrade pip
 pip install multiqc
 
-#generate multiqc reports from downsampled fastq files in current directory
-multiqc .
+#generate multiqc reports from fastqc files into current directory
+multiqc fastqc_out/*
 
 #download html results from output directory onto current local machine directory for viewing
 #this is done from a new terminal on the local machine
 scp rsivakum@graham.computecanada.ca:~/scratch/6999/multiqc_report.html .
 
-#upload unitas perl script (obtained from https://www.smallrnagroup.uni-mainz.de/software.html) to 6999 directory on cluster
+#upload unitas, length filter, sRNAmapper, reallocate, proTrac, pingpong and repeatmasker perl scripts (obtained from https://www.smallrnagroup.uni-mainz.de/software.html) to 6999 directory on cluster
 #this is done from a new terminal on the local machine
-scp unitas_1.7.0.zip rsivakum@graham.computecanada.ca:~/scratch/6999
+scp unitas_1.7.0.zip TBr2_length-filter.pl sRNAmapper.pl reallocate.pl proTRAC_2.4.2.pl TBr2_pingpong.pl RMvsMAP.pl rsivakum@graham.computecanada.ca:~/scratch/6999
 
 #unzip unitas script into current 6999 directory and change directories
 unzip unitas_1.7.0.zip
