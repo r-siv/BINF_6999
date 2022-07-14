@@ -167,7 +167,7 @@ do
     cp $file/fasta/unitas.no-annotation.fas ./testing_data/$file.fas;
 done
 
-#run piRNA length filter on unannotated files
+#run piRNA length filter on unannotated files and rename new files with suffix _len
 for file in testing_data/U*;
 do
     perl scripts/TBr2_length-filter.pl -i $file -o $file""_len"" -min 24 -max 32;
@@ -195,8 +195,36 @@ do
     gunzip $file;
 done
 
-#run sRNAmapper on len files
+#setup interactive node
+salloc --time=4:0:0 --ntasks=2 --account=def-jlamarre
+
+#run sRNAmapper on len files (best alignments in terms of mismatch counts written for each sequence)
 for file in testing_data/*_len;
 do
     perl scripts/sRNAmapper.pl -input $file -genome GCF_002263795.2_ARS-UCD1.3_genomic.fna -alignments best;
+done
+
+#run reallocation on new map files (perimeter of 5000, resolution of 1000, bell shape function and 0 to reject loci with no allocated reads)
+for file in testing_data/*.map;
+do
+    perl scripts/reallocate.pl $file 5000 1000 b 0;
+done
+
+#run proTrac clustering on new weighted files using using maximum piRNA length of 32 and output mapped reads as tab-delimited table
+for file in testing_data/*.weighted-5000-1000-b-0;
+do
+    perl scripts/proTRAC_2.1.2.pl -map $file -genome GCF_002263795.2_ARS-UCD1.3_genomic.fna -repeatmasker bosTau7.fa.out -geneset Bos_taurus.ARS-UCD1.2.106.chr.gtf -pimax 32 -pti;
+done
+#minimum size of piRNA cluster set to 1000 bp (default)
+
+#run ping-pong check on non-weighted map files and rename new files with suffix _pp.txt
+for file in testing_data/*.map;
+do
+    perl scripts/TBr2_pingpong.pl -i $file -o  ${file%.*}"_pp.txt";
+done
+
+#run repeatmasker annotation on non-weighted map files
+for file in testing_data/*.map;
+do
+    perl scripts/RMvsMAP.pl scripts/bosTau7.fa.out $file;
 done
