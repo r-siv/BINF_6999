@@ -122,6 +122,7 @@ done
 #  3 nt motif enriched: 8
 #  4 nt motif enriched: 1
 #  5 nt motif enriched: 3
+
 #for 01Bb_S6_R1_001.trim.cat.down.fastq 9930 sequences are ok, 70 sequences are dusty (low-complexity)
 #  Monomer:             8
 #  Biased for 2 bases:  50
@@ -129,6 +130,7 @@ done
 #  3 nt motif enriched: 5
 #  4 nt motif enriched: 2
 #  5 nt motif enriched: 1
+
 #for 24A_S44_R1_001.trim.cat.down.fastq 9789 sequences are ok, 211 sequences are dusty (low-complexity)
 #  Monomer:             43
 #  Biased for 2 bases:  113
@@ -176,10 +178,12 @@ done
 #Found 1560 sequences < 24 nt.
 #Found 1124 sequences > 32 nt.
 #Found 2789 sequences from 24-32 nt.
+
 #for UNITAS_12-07-2022_01Bb_S6_R1_001.trim.cat.down.fastq_#1.fas
 #Found 936 sequences < 24 nt.
 #Found 603 sequences > 32 nt.
 #Found 2203 sequences from 24-32 nt.
+
 #for UNITAS_12-07-2022_24A_S44_R1_001.trim.cat.down.fastq_#1.fas
 #Found 1670 sequences < 24 nt.
 #Found 204 sequences > 32 nt.
@@ -216,8 +220,41 @@ do
     perl scripts/proTRAC_2.1.2.pl -map $file -genome GCF_002263795.2_ARS-UCD1.3_genomic.fna -repeatmasker bosTau7.fa.out -geneset Bos_taurus.ARS-UCD1.2.106.chr.gtf -pimax 32 -pti;
 done
 #minimum size of piRNA cluster set to 1000 bp (default)
+#genome size (without gaps): 2711181669 bp
+#gaps (N/X/-): 730 bp
+#Number of Chromosomes/Scaffolds: 1957
 
-#run ping-pong check on non-weighted map files and rename new files with suffix _pp.txt
+#for UNITAS_12-07-2022_01Ba_S13_R1_001.trim.cat.down.fastq_#1.fas_len.map.weighted-5000-1000-b-0
+#mapped reads: 1616
+#non-identical sequences: 1374
+#Genomic hits: 10258 (+:5250 -:5008)
+#Total size of 69 predicted piRNA clusters: 866403 bp (0.032%)
+#Non identical sequences that can be assigned to clusters: 756 (55.022%)
+#Sequence reads that can be assigned to clusters: 849 (52.537%)
+#Total repeat-masked bases in clusters: 0 (0%)
+#Total repeat-masked bases in genome: 1394750942 (51.44%)
+
+#for UNITAS_12-07-2022_01Bb_S6_R1_001.trim.cat.down.fastq_#1.fas_len.map.weighted-5000-1000-b-0
+#mapped reads: 1841
+#non-identical sequences: 1705
+#Genomic hits: 3331 (+:1507 -:1824)
+#Total size of 68 predicted piRNA clusters: 994670 bp (0.037%)
+#Non identical sequences that can be assigned to clusters: 1261 (73.959%)
+#Sequence reads that can be assigned to clusters: 1349 (73.275%)
+#Total repeat-masked bases in clusters: 0 (0%)
+#Total repeat-masked bases in genome: 1394750942 (51.44%)
+
+#for UNITAS_12-07-2022_24A_S44_R1_001.trim.cat.down.fastq_#1.fas_len.map.weighted-5000-1000-b-0
+#mapped reads: 2435
+#non-identical sequences: 2251
+#Genomic hits: 7599 (+:3879 -:3720)
+#Total size of 72 predicted piRNA clusters: 1315428 bp (0.049%)
+#Non identical sequences that can be assigned to clusters: 1292 (57.397%)
+#Sequence reads that can be assigned to clusters: 1394 (57.248%)
+#Total repeat-masked bases in clusters: 0 (0%)
+#Total repeat-masked bases in genome: 1394750942 (51.44%)
+
+#run ping-pong check on non-weighted map files and rename new files with suffix _pp.txt (remove map suffix)
 for file in testing_data/*.map;
 do
     perl scripts/TBr2_pingpong.pl -i $file -o  ${file%.*}"_pp.txt";
