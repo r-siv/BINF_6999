@@ -2,11 +2,11 @@
 #analysis log for all the steps in the pipeline
 
 #upload fastq.tar.gz file to scratch directory on cluster with SCP
-scp bov_sperm_concat_trimmed.fastq.tar.gz rsivakum@graham.computecanada.ca:~/scratch
+scp bov_sperm_concat_trimmed.fastq.tar.gz rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/
 
 #log in to cluster and change directories to scratch (containing fastq.tar.gz)
 ssh rsivakum@graham.computecanda.ca
-cd scratch/
+cd projects/def-jlamarre/rsivakum/
 
 #make new directory and move fastq.tar.gz into that
 mkdir 6999
@@ -74,7 +74,7 @@ done
 
 #download html results from output directory onto current local machine directory for viewing
 #this is done from a new terminal on the local machine
-scp rsivakum@graham.computecanada.ca:~/scratch/6999/fastqc_out/*.html .
+scp rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/fastqc_out/*.html .
 
 #check and load python module
 module spider python
@@ -92,14 +92,14 @@ deactivate
 
 #download html results from output directory onto current local machine directory for viewing
 #this is done from a new terminal on the local machine
-scp rsivakum@graham.computecanada.ca:~/scratch/6999/multiqc_report.html .
+scp rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/multiqc_report.html .
 
 #make new directory called scripts for storing downstream scripts to be used
 mkdir scripts
 
 #upload unitas, length filter, sRNAmapper, reallocate, proTrac, pingpong and repeatmasker files (obtained from https://www.smallrnagroup.uni-mainz.de/software.html) to scripts directory on cluster
 #this is done from a new terminal on the local machine
-scp unitas_1.7.0.zip TBr2_length-filter.pl sRNAmapper.pl reallocate.pl proTRAC_2.4.2.pl TBr2_pingpong.pl RMvsMAP.pl rsivakum@graham.computecanada.ca:~/scratch/6999/scripts
+scp unitas_1.7.0.zip TBr2_length-filter.pl sRNAmapper.pl reallocate.pl proTRAC_2.4.2.pl TBr2_pingpong.pl RMvsMAP.pl rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/scripts
 
 #unzip unitas script
 unzip scripts/unitas_1.7.0.zip
@@ -113,7 +113,7 @@ for file in testing_data/*.fastq;
 do 
     perl unitas/unitas_1.7.0.pl -i $file -s bos_taurus; 
 done
-#note when using -trim ? option, different files are created so unsure if it should be performed (lines 117 & 128)
+#data is already trimmed so no need for -trim
 
 #for 01Ba_S13_R1_001.trim.cat.down.fastq 9893 sequences are ok, 107 sequences are dusty (low-complexity)
 #  Monomer:             17
@@ -161,7 +161,7 @@ done
 
 #download all Unitas folders to display html results onto current local machine directory
 #this is done from a new terminal on the local machine
-scp -r rsivakum@graham.computecanada.ca:~/scratch/6999/*\#1 .
+scp -r rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/*\#1 .
 
 #copy unannotated files (will contain piRNA reads) from Unitas directories into testing directory
 for file in *\#1;
@@ -191,7 +191,7 @@ done
 
 #upload Bos taurus genome, repeatmasker annotation and ENSEMBL geneset files to main directory on cluster
 #this is done from a new terminal on the local machine
-scp GCF_002263795.2_ARS-UCD1.3_genomic.fna.gz bosTau7.fa.out.gz Bos_taurus.ARS-UCD1.2.106.chr.gtf.gz rsivakum@graham.computecanada.ca:~/scratch/6999/
+scp GCF_002263795.2_ARS-UCD1.3_genomic.fna.gz bosTau7.fa.out.gz Bos_taurus.ARS-UCD1.2.106.chr.gtf.gz rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999
 
 #unzip all the new Bos taurus files
 for file in *.gz;
