@@ -4,9 +4,12 @@
 #upload fastq.tar.gz file to scratch directory on cluster with SCP
 scp bov_sperm_concat_trimmed.fastq.tar.gz rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/
 
-#log in to cluster and change directories to scratch (containing fastq.tar.gz)
+#log in to cluster and change directories to projects (containing fastq.tar.gz)
 ssh rsivakum@graham.computecanda.ca
 cd projects/def-jlamarre/rsivakum/
+
+#if files were placed in scratch directory and are to be moved into projects directory, follow instructions at below link: 
+#https://docs.alliancecan.ca/wiki/Frequently_Asked_Questions#Moving_files_across_the_project.2C_scratch_and_home_filesystems
 
 #make new directory and move fastq.tar.gz into that
 mkdir 6999
@@ -108,11 +111,12 @@ unzip scripts/unitas_1.7.0.zip
 module spider perl
 module load perl
 
-#collapse and filter low complexity reads (default filter at 75% repeats for a sequence) automatically on all files
-for file in testing_data/*.fastq; 
-do 
-    perl unitas/unitas_1.7.0.pl -i $file -s bos_taurus; 
-done
+#copy fastq files into temporary directory for easier parsing with Unitas
+mkdir for_unitas
+cp testing_data/*.fastq for_unitas
+
+#collapse and filter low complexity reads (default filter at 75% repeats for a sequence) automatically on all files (4 threads used)
+perl unitas/unitas_1.7.0.pl -i for_unitas -s bos_taurus -threads 4
 #data is already trimmed so no need for -trim
 
 #for 01Ba_S13_R1_001.trim.cat.down.fastq 9893 sequences are ok, 107 sequences are dusty (low-complexity)
