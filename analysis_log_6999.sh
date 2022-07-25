@@ -178,22 +178,22 @@ do
     cp $file/fasta/unitas.no-annotation.fas ./testing_data/$file.fas;
 done
 
-#run piRNA length filter on unannotated files and rename new files with suffix _len
+#run piRNA length filter on unannotated files and rename new files with suffix _len and shortened name (remove first 18 characters including "UNITAS", underscores and date)
 for file in testing_data/U*;
 do
-    perl scripts/TBr2_length-filter.pl -i $file -o $file""_len"" -min 24 -max 32;
+    perl scripts/TBr2_length-filter.pl -i $file -o ${file:18}""_len"" -min 24 -max 32;
 done
-#for UNITAS_12-07-2022_01Ba_S13_R1_001.trim.cat.down.fastq_#1.fas
+#for 01Ba_S13_R1_001.trim.cat.down.fastq_#1.fas
 #Found 1560 sequences < 24 nt.
 #Found 1124 sequences > 32 nt.
 #Found 2789 sequences from 24-32 nt.
 
-#for UNITAS_12-07-2022_01Bb_S6_R1_001.trim.cat.down.fastq_#1.fas
+#for 01Bb_S6_R1_001.trim.cat.down.fastq_#1.fas
 #Found 936 sequences < 24 nt.
 #Found 603 sequences > 32 nt.
 #Found 2203 sequences from 24-32 nt.
 
-#for UNITAS_12-07-2022_24A_S44_R1_001.trim.cat.down.fastq_#1.fas
+#for 24A_S44_R1_001.trim.cat.down.fastq_#1.fas
 #Found 1670 sequences < 24 nt.
 #Found 204 sequences > 32 nt.
 #Found 2686 sequences from 24-32 nt.
@@ -213,10 +213,23 @@ chmod 744 twoBitToFa
 ./twoBitToFa bosTau9.2bit bosTau9.fa
 
 #run sRNAmapper on len files (best alignments in terms of mismatch counts written for each sequence)
+#mapping should be submitted as a job through sbatch
+touch job.sh
+nano job.sh
+#the contents of this shell script should be as follows:
+
+#!/bin/bash
+#SBATCH --time=02:00:00
+#SBATCH --account=def-jlamarre
+module load perl
 for file in testing_data/*_len;
 do
     perl scripts/sRNAmapper.pl -i $file -g bosTau9.fa -a best;
 done
+sleep 30
+
+#submit file as serial job
+sbatch job.sh
 
 #append "chr" to the start of all numbers in the first column for the gtf file to match repeatmasker and genome formats
 for file in *.gtf;
@@ -240,7 +253,7 @@ done
 #gaps (N/X/-): 939 bp
 #Number of Chromosomes/Scaffolds: 2211
 
-#for UNITAS_12-07-2022_01Ba_S13_R1_001.trim.cat.down.fastq_#1.fas_len.map.weighted-5000-1000-b-0
+#for 01Ba_S13_R1_001.trim.cat.down.fastq_#1.fas_len.map.weighted-5000-1000-b-0
 #mapped reads: 1630
 #non-identical sequences: 1388
 #Genomic hits: 10270 (+:5234 -:5036)
@@ -250,7 +263,7 @@ done
 #Total repeat-masked bases in clusters: 388451 (44.83%)
 #Total repeat-masked bases in genome: 1348220998 (49.64%)
 
-#for UNITAS_12-07-2022_01Bb_S6_R1_001.trim.cat.down.fastq_#1.fas_len.map.weighted-5000-1000-b-0
+#for 01Bb_S6_R1_001.trim.cat.down.fastq_#1.fas_len.map.weighted-5000-1000-b-0
 #mapped reads: 1843
 #non-identical sequences: 1707
 #Genomic hits: 3337 (+:1507 -:1830)
@@ -260,7 +273,7 @@ done
 #Total repeat-masked bases in clusters: 349019 (35.09%)
 #Total repeat-masked bases in genome: 1348220998 (49.64%)
 
-#for UNITAS_12-07-2022_24A_S44_R1_001.trim.cat.down.fastq_#1.fas_len.map.weighted-5000-1000-b-0
+#for 24A_S44_R1_001.trim.cat.down.fastq_#1.fas_len.map.weighted-5000-1000-b-0
 #mapped reads: 2437
 #non-identical sequences: 2253
 #Genomic hits: 7601 (+:3879 -:3722)
@@ -273,7 +286,7 @@ done
 #run ping-pong check on non-weighted map files and rename new files with suffix _pp.txt (remove map suffix)
 for file in testing_data/*.map;
 do
-    perl scripts/TBr2_pingpong.pl -i $file -o  ${file%.*}"_pp.txt";
+    perl scripts/TBr2_pingpong.pl -i $file -o ${file%.*}"_pp.txt";
 done
 
 #run repeatmasker annotation on non-weighted map files
