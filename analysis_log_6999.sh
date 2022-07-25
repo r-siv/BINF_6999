@@ -234,7 +234,7 @@ sbatch job.sh
 #append "chr" to the start of all numbers in the first column for the gtf file to match repeatmasker and genome formats
 for file in *.gtf;
 do
-    awk 'OFS="\t" {if (NR > 5) $1="chr"$1; print}' $file;
+    awk 'OFS="\t" {if (NR > 5) $1="chr"$1}' $file;
 done
 
 #run reallocation on new map files (perimeter of 5000, resolution of 1000, bell shape function and 0 to reject loci with no allocated reads)
