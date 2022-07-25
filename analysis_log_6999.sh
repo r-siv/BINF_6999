@@ -52,11 +52,15 @@ done
 module spider seqtk
 module load seqtk
 
-#randomly downsample all files and check for correct read numbers
+#setup interactive node (to be done for less computationally intensive steps)
+salloc --time=4:0:0 --ntasks=2 --account=def-jlamarre
+
+#randomly downsample all files
 for file in testing_data/*; 
 do 
     seqtk sample $file 10000 > $file.down.fastq; 
 done
+#check for correct read numbers
 for file in testing_data/*.fastq; 
 do 
     echo "$file"; grep "@" $file | wc -l; 
@@ -163,9 +167,10 @@ done
 #there are 3742 unannotated reads in 01Bb_S6_R1_001.trim.cat
 #there are 4560 unannotated reads in 24A_S44_R1_001.trim.cat
 
-#download all Unitas folders to display html results onto current local machine directory
+#download all html files from one Unitas directory to display results onto current local machine directory (UNITAS_12-07-2022_24A_S44_R1_001.trim.cat.down.fastq_#1 was used as an example)
 #this is done from a new terminal on the local machine
-scp -r rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/*\#1 .
+#scp should not be used for transferring files from multiple remote directories to multiple local directories
+scp -r rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/UNITAS_12-07-2022_24A_S44_R1_001.trim.cat.down.fastq_#1/html .
 
 #copy unannotated files (will contain piRNA reads) from Unitas directories into testing directory
 for file in *\#1;
@@ -193,9 +198,9 @@ done
 #Found 204 sequences > 32 nt.
 #Found 2686 sequences from 24-32 nt.
 
-#upload Bos taurus genome, repeatmasker annotation and ENSEMBL geneset files to main directory on cluster
+#upload twoBitToFa tool (from http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/), Bos taurus genome, repeatmasker annotation and ENSEMBL geneset files to main directory on cluster
 #this is done from a new terminal on the local machine
-scp GCF_002263795.2_ARS-UCD1.3_genomic.fna.gz bosTau7.fa.out.gz Bos_taurus.ARS-UCD1.2.106.chr.gtf.gz rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999
+scp twoBitToFa bosTau9.2bit bosTau9.fa.out.gz Bos_taurus.ARS-UCD1.2.106.chr.gtf.gz rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999
 
 #unzip all the new Bos taurus files
 for file in *.gz;
@@ -203,13 +208,20 @@ do
     gunzip $file;
 done
 
-#setup interactive node
-salloc --time=4:0:0 --ntasks=2 --account=def-jlamarre
+#unpack twoBitToFa tool and extract genome from 2bit file
+chmod 744 twoBitToFa
+./twoBitToFa bosTau9.2bit bosTau9.fa
 
 #run sRNAmapper on len files (best alignments in terms of mismatch counts written for each sequence)
 for file in testing_data/*_len;
 do
-    perl scripts/sRNAmapper.pl -input $file -genome GCF_002263795.2_ARS-UCD1.3_genomic.fna -alignments best;
+    perl scripts/sRNAmapper.pl -i $file -g bosTau9.fa -a best;
+done
+
+#append "chr" to the start of all numbers in the first column for the gtf file to match repeatmasker and genome formats
+for file in *.gtf;
+do
+    awk 'OFS="\t" {if (NR > 5) $1="chr"$1; print}' $file;
 done
 
 #run reallocation on new map files (perimeter of 5000, resolution of 1000, bell shape function and 0 to reject loci with no allocated reads)
@@ -221,42 +233,42 @@ done
 #run proTrac clustering on new weighted files using using maximum piRNA length of 32 and output mapped reads as tab-delimited table
 for file in testing_data/*.weighted-5000-1000-b-0;
 do
-    perl scripts/proTRAC_2.1.2.pl -map $file -genome GCF_002263795.2_ARS-UCD1.3_genomic.fna -repeatmasker bosTau7.fa.out -geneset Bos_taurus.ARS-UCD1.2.106.chr.gtf -pimax 32 -pti;
+    perl scripts/proTRAC_2.1.2.pl -map $file -genome bosTau9.fa -repeatmasker bosTau9.fa.out -geneset Bos_taurus.ARS-UCD1.2.106.chr.gtf -pimax 32 -pti;
 done
 #minimum size of piRNA cluster set to 1000 bp (default)
-#genome size (without gaps): 2711181669 bp
-#gaps (N/X/-): 730 bp
-#Number of Chromosomes/Scaffolds: 1957
+#genome size (without gaps): 2715825630 bp
+#gaps (N/X/-): 939 bp
+#Number of Chromosomes/Scaffolds: 2211
 
 #for UNITAS_12-07-2022_01Ba_S13_R1_001.trim.cat.down.fastq_#1.fas_len.map.weighted-5000-1000-b-0
-#mapped reads: 1616
-#non-identical sequences: 1374
-#Genomic hits: 10258 (+:5250 -:5008)
+#mapped reads: 1630
+#non-identical sequences: 1388
+#Genomic hits: 10270 (+:5234 -:5036)
 #Total size of 69 predicted piRNA clusters: 866403 bp (0.032%)
 #Non identical sequences that can be assigned to clusters: 756 (55.022%)
 #Sequence reads that can be assigned to clusters: 849 (52.537%)
-#Total repeat-masked bases in clusters: 0 (0%)
-#Total repeat-masked bases in genome: 1394750942 (51.44%)
+#Total repeat-masked bases in clusters: 388451 (44.83%)
+#Total repeat-masked bases in genome: 1348220998 (49.64%)
 
 #for UNITAS_12-07-2022_01Bb_S6_R1_001.trim.cat.down.fastq_#1.fas_len.map.weighted-5000-1000-b-0
-#mapped reads: 1841
-#non-identical sequences: 1705
-#Genomic hits: 3331 (+:1507 -:1824)
+#mapped reads: 1843
+#non-identical sequences: 1707
+#Genomic hits: 3337 (+:1507 -:1830)
 #Total size of 68 predicted piRNA clusters: 994670 bp (0.037%)
 #Non identical sequences that can be assigned to clusters: 1261 (73.959%)
 #Sequence reads that can be assigned to clusters: 1349 (73.275%)
-#Total repeat-masked bases in clusters: 0 (0%)
-#Total repeat-masked bases in genome: 1394750942 (51.44%)
+#Total repeat-masked bases in clusters: 349019 (35.09%)
+#Total repeat-masked bases in genome: 1348220998 (49.64%)
 
 #for UNITAS_12-07-2022_24A_S44_R1_001.trim.cat.down.fastq_#1.fas_len.map.weighted-5000-1000-b-0
-#mapped reads: 2435
-#non-identical sequences: 2251
-#Genomic hits: 7599 (+:3879 -:3720)
-#Total size of 72 predicted piRNA clusters: 1315428 bp (0.049%)
-#Non identical sequences that can be assigned to clusters: 1292 (57.397%)
-#Sequence reads that can be assigned to clusters: 1394 (57.248%)
-#Total repeat-masked bases in clusters: 0 (0%)
-#Total repeat-masked bases in genome: 1394750942 (51.44%)
+#mapped reads: 2437
+#non-identical sequences: 2253
+#Genomic hits: 7601 (+:3879 -:3722)
+#Total size of 72 predicted piRNA clusters: 1315428 bp (0.048%)
+#Non identical sequences that can be assigned to clusters: 1292 (57.346%)
+#Sequence reads that can be assigned to clusters: 1394 (57.201%)
+#Total repeat-masked bases in clusters: 470769 (35.79%)
+#Total repeat-masked bases in genome: 1348220998 (49.64%)
 
 #run ping-pong check on non-weighted map files and rename new files with suffix _pp.txt (remove map suffix)
 for file in testing_data/*.map;
@@ -267,5 +279,5 @@ done
 #run repeatmasker annotation on non-weighted map files
 for file in testing_data/*.map;
 do
-    perl scripts/RMvsMAP.pl scripts/bosTau7.fa.out $file;
+    perl scripts/RMvsMAP.pl bosTau9.fa.out $file;
 done
