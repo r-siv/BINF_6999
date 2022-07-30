@@ -22,7 +22,7 @@ tar -tf bov_sperm_concat_trimmed.fastq.tar.gz
 #count files
 tar -tf bov_sperm_concat_trimmed.fastq.tar.gz | wc -l
 #there are 44 sample files total (sample index indicated by number after letter S)
-#files starting with 01 to 25 (bull id) are all bull sRNA files to be used
+#files starting with 01 to 25 (bull id) are all bull sRNA files to be used (all in fastq format)
 #bulls 01-14 are low fertility
 #bulls 15-24 are high fertility
 #capitalized letter after bull id represents collection type
@@ -104,9 +104,9 @@ scp rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/multi
 #make new directory called scripts for storing downstream scripts to be used
 mkdir scripts
 
-#upload unitas, length filter, sRNAmapper, reallocate, proTrac, pingpong and repeatmasker files (obtained from https://www.smallrnagroup.uni-mainz.de/software.html) to scripts directory on cluster
+#upload unitas, length filter, TBr2 basic, sRNAmapper, reallocate, proTrac, pingpong and repeatmasker files (obtained from https://www.smallrnagroup.uni-mainz.de/software.html) to scripts directory on cluster
 #this is done from a new terminal on the local machine
-scp unitas_1.7.0.zip TBr2_length-filter.pl sRNAmapper.pl reallocate.pl proTRAC_2.4.2.pl TBr2_pingpong.pl RMvsMAP.pl rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/scripts
+scp unitas_1.7.0.zip TBr2_length-filter.pl TBr2_basic-analyses.pl sRNAmapper.pl reallocate.pl proTRAC_2.4.2.pl TBr2_pingpong.pl RMvsMAP.pl rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/scripts
 
 #unzip unitas script
 unzip scripts/unitas_1.7.0.zip
@@ -118,6 +118,9 @@ module load perl
 #copy fastq files into temporary directory for easier parsing with Unitas
 mkdir for_unitas
 cp testing_data/*.fastq for_unitas
+
+#record all user input and printed output to terminal using script (end recording with CTRL-D or exit)
+script unitaslog.txt
 
 #collapse and filter low complexity reads (default filter at 75% repeats for a sequence) automatically on all files (4 threads used)
 perl unitas/unitas_1.7.0.pl -i for_unitas -s bos_taurus -threads 4
@@ -178,10 +181,16 @@ do
     cp $file/fasta/unitas.no-annotation.fas ./testing_data/$file.fas;
 done
 
-#run piRNA length filter on unannotated files and rename new files with suffix _len and shortened name (remove first 18 characters including "UNITAS", underscores and date)
+#make directory for filtered files
+mkdir len_filtered
+
+#record terminal output
+script length_filter_log.txt
+
+#run piRNA length filter on unannotated files and move them to filtered directory
 for file in testing_data/U*;
 do
-    perl scripts/TBr2_length-filter.pl -i $file -o ${file:18}""_len"" -min 24 -max 32;
+    perl scripts/TBr2_length-filter.pl -i $file -o len_filtered/$file"_len" -min 24 -max 32;
 done
 #for 01Ba_S13_R1_001.trim.cat.down.fastq_#1.fas
 #Found 1560 sequences < 24 nt.
@@ -198,6 +207,37 @@ done
 #Found 204 sequences > 32 nt.
 #Found 2686 sequences from 24-32 nt.
 
+#rename new files with suffix _len and shortened name (remove first 18 characters including "UNITAS", underscores and date)
+for file in len_filtered*;
+do
+    mv "$file" "${file:18}";
+done
+
+#check and load fastx toolkit module
+module spider fastx-toolkit
+module load fastx-toolkit
+
+#convert uncollapsed _len files into fasta format for obtaining length and nucleotide distributions
+for file in len_filtered/*_len;
+do 
+    fasta_formatter -t -i $file -o $file"_tab";
+done
+
+for file in len_filtered/*_tab;
+do
+    awk '{c=$1; while (c-->0) print}' $file > ${file%.*}""_expand.txt;
+done
+
+for file in len_filtered/*_expand.txt;
+do
+    awk '{print ">"$1"\n"$2}' $file > ${file%.*}".fa";
+done
+
+for file in len_filtered/*_expand.fa;
+do
+    perl scripts/TBr2_basic-analyses.pl -i $file -o ${file%.*}""_len_expand_analysis.txt"";
+done
+
 #upload twoBitToFa tool (from http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/), Bos taurus genome, repeatmasker annotation and ENSEMBL geneset files to main directory on cluster
 #this is done from a new terminal on the local machine
 scp twoBitToFa bosTau9.2bit bosTau9.fa.out.gz Bos_taurus.ARS-UCD1.2.106.chr.gtf.gz rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999
@@ -212,24 +252,37 @@ done
 chmod 744 twoBitToFa
 ./twoBitToFa bosTau9.2bit bosTau9.fa
 
+#make map file directory
+mkdir maps
+
 #run sRNAmapper on len files (best alignments in terms of mismatch counts written for each sequence)
-#mapping should be submitted as a job through sbatch
+#mapping should be submitted as an array job through SLURM scheduler using SBATCH
 touch job.sh
 nano job.sh
 #the contents of this shell script should be as follows:
 
 #!/bin/bash
-#SBATCH --time=02:00:00
+#SBATCH --array=0-29
+#SBATCH --job-name=" mapping"
+#SBATCH --time=03:00:00
+#SBATCH --mem=1000
 #SBATCH --account=def-jlamarre
+files=(len_filtered/*_len)
+file=${files[$SLURM_ARRAY_TASK_ID]}
+
+echo $file
+output=$(basename ${file}).map
+
 module load perl
-for file in testing_data/*_len;
-do
-    perl scripts/sRNAmapper.pl -i $file -g bosTau9.fa -a best;
-done
+perl scripts/sRNAmapper.pl -i $file -g bosTau9.fa -a best -o maps/$output
 sleep 30
 
-#submit file as serial job
+#submit file as array job
 sbatch job.sh
+
+#when all computations are complete, check SLURM output files if any errors occurred
+grep -r  "No such" *.out
+#increase allocated memory (#SBATCH --mem=) if oom-kill events occur in slurm output
 
 #append "chr" to the start of all numbers in the first column for the gtf file to match repeatmasker and genome formats
 for file in *.gtf;
@@ -238,16 +291,59 @@ do
 done
 
 #run reallocation on new map files (perimeter of 5000, resolution of 1000, bell shape function and 0 to reject loci with no allocated reads)
-for file in testing_data/*.map;
-do
-    perl scripts/reallocate.pl $file 5000 1000 b 0;
-done
+#reallocation should be submitted as an array job through SLURM scheduler using SBATCH
+touch job2.sh
+nano job2.sh
+#the contents of this shell script should be as follows:
+
+#!/bin/bash
+#SBATCH --array=0-29
+#SBATCH --job-name=" reallocating"
+#SBATCH --time=01:00:00
+#SBATCH --mem=1000
+#SBATCH --account=def-jlamarre
+files=(analysis/maps/*)
+file=${files[$SLURM_ARRAY_TASK_ID]}
+
+echo $file
+
+module load perl
+perl scripts/reallocate.pl -i $file 5000 1000 b 0
+sleep 30
+
+#submit file as array job
+sbatch job2.sh
+
+#move reallocated files to maps directory
+mv *.weighted-5000-1000-b-0 maps/
+
+#make clustering directory
+mkdir clustering
 
 #run proTrac clustering on new weighted files using using maximum piRNA length of 32 and output mapped reads as tab-delimited table
-for file in testing_data/*.weighted-5000-1000-b-0;
-do
-    perl scripts/proTRAC_2.1.2.pl -map $file -genome bosTau9.fa -repeatmasker bosTau9.fa.out -geneset Bos_taurus.ARS-UCD1.2.106.chr.gtf -pimax 32 -pti;
-done
+#clustering should be submitted as an array job through SLURM scheduler using SBATCH
+touch job3.sh
+nano job3.sh
+#the contents of this shell script should be as follows:
+
+#!/bin/bash
+#SBATCH --array=0-29
+#SBATCH --job-name=" clustering"
+#SBATCH --time=03:00:00
+#SBATCH --mem=5000
+#SBATCH --account=def-jlamarre
+files=(maps/*.weighted-5000-1000-b-0)
+file=${files[$SLURM_ARRAY_TASK_ID]}
+
+echo $file
+
+module load perl
+perl scripts/proTRAC_2.4.2.pl -map $file -genome bosTau9.fa -repeatmasker bosTau9.fa.out -geneset Bos_taurus.ARS-UCD1.2.106.chr.gtf -pimax 32 -pti
+sleep 30
+
+#submit file as array job
+sbatch job3.sh
+
 #minimum size of piRNA cluster set to 1000 bp (default)
 #genome size (without gaps): 2715825630 bp
 #gaps (N/X/-): 939 bp
@@ -283,14 +379,53 @@ done
 #Total repeat-masked bases in clusters: 470769 (35.79%)
 #Total repeat-masked bases in genome: 1348220998 (49.64%)
 
+#move proTrac files to clustering directory
+mv pro* clustering/
+
+#make ping-pong directory
+mkdir pingpong
+
 #run ping-pong check on non-weighted map files and rename new files with suffix _pp.txt (remove map suffix)
-for file in testing_data/*.map;
-do
-    perl scripts/TBr2_pingpong.pl -i $file -o ${file%.*}"_pp.txt";
-done
+#ping-pong checks should be submitted as an array job through SLURM scheduler using SBATCH
+touch job4.sh
+nano job4.sh
+#the contents of this shell script should be as follows:
+
+#!/bin/bash
+#SBATCH --array=0-29
+#SBATCH --job-name=" pingpong"
+#SBATCH --time=01:00:00
+#SBATCH --mem=5000
+#SBATCH --account=def-jlamarre
+files=(maps/*.map)
+file=${files[$SLURM_ARRAY_TASK_ID]}
+
+echo $file
+
+module load perl
+perl scripts/TBr2_pingpong.pl -i $file -o ${file%.*}"_pp.txt"
+sleep 30
+
+#submit file as array job
+sbatch job4.sh
+
+#Analyzing map file maps/01Ba_S13_R1_001.trim.cat.down.fastq_#1.fas_len.map
+#This is a standard map file: +hits: 6401 / -hits: 6056
+
+#Analyzing map file maps/01Bb_S6_R1_001.trim.cat.down.fastq_#1.fas_len.map
+#This is a standard map file: +hits: 1790 / -hits: 2074
+
+#Analyzing map file maps/24A_S44_R1_001.trim.cat.down.fastq_#1.fas_len.map
+#This is a standard map file: +hits: 19447 / -hits: 19061
+
+#when all computations are complete, check SLURM output files if any errors occurred
+grep "error" *.out
+
+#move ping-pong files to pingpong directory
+mv *_pp.txt pingpong/
 
 #run repeatmasker annotation on non-weighted map files
-for file in testing_data/*.map;
+for file in maps/*.map;
 do
     perl scripts/RMvsMAP.pl bosTau9.fa.out $file;
 done
