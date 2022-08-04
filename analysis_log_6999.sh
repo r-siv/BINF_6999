@@ -1,7 +1,8 @@
-#Raam Sivakumar
-#analysis log for all the steps in the pipeline
+#BINF*6999 Project 
+#BASH script for Small RNA-Seq analysis in bovine sperm
+#This analysis log contains all the steps taken in the pipeline
 
-#upload fastq.tar.gz file to scratch directory on cluster with SCP
+#upload fastq.tar.gz file to scratch directory on cluster with SCP protocol
 scp bov_sperm_concat_trimmed.fastq.tar.gz rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/
 
 #log in to cluster and change directories to projects (containing fastq.tar.gz)
@@ -56,10 +57,12 @@ module load seqtk
 salloc --time=4:0:0 --ntasks=2 --account=def-jlamarre
 
 #randomly downsample all files
+#NOTE: Skip this step when working with complete data (downsampling done only for testing pipeline)
 for file in testing_data/*; 
 do 
     seqtk sample $file 10000 > $file.down.fastq; 
 done
+
 #check for correct read numbers
 for file in testing_data/*.fastq; 
 do 
@@ -71,8 +74,7 @@ done
 module spider fastqc
 module load fastqc
 
-#change directories and make new fastqc directory to perform preliminary fastqc statistics on all downsampled files. Move output into new directory
-cd ..
+#make new fastqc directory to perform preliminary fastqc statistics on all downsampled files. Move output into new directory
 mkdir fastqc_out
 for file in testing_data/*.fastq; 
 do 
@@ -89,7 +91,7 @@ module load python
 
 #set up and activate virtual environment for installing multiqc through pip
 virtualenv --no-download ENV
-source ENV/bin/activate #run this line everytime multiqc is to be performed (similar to module load) and leave virtual environment using deactivate
+source ENV/bin/activate #run this line everytime multiqc is to be performed (similar to module load) and exit virtual environment using deactivate
 pip install --no-index --upgrade pip
 pip install multiqc
 
@@ -101,7 +103,7 @@ deactivate
 #this is done from a new terminal on the local machine
 scp rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/multiqc_report.html .
 
-#make new directory called scripts for storing downstream scripts to be used
+#make new directory called scripts for storing scripts to be used downstream
 mkdir scripts
 
 #upload unitas, length filter, TBr2 basic, sRNAmapper, reallocate, proTrac, pingpong and repeatmasker files (obtained from https://www.smallrnagroup.uni-mainz.de/software.html) to scripts directory on cluster
@@ -122,7 +124,7 @@ cp testing_data/*.fastq for_unitas
 #record all user input and printed output to terminal using script (end recording with CTRL-D or exit)
 script unitaslog.txt
 
-#collapse and filter low complexity reads (default filter at 75% repeats for a sequence) automatically on all files (4 threads used)
+#annotate, collapse and filter low complexity reads (default filter at 75% repeats for a sequence) automatically on all files (4 threads used)
 perl unitas/unitas_1.7.0.pl -i for_unitas -s bos_taurus -threads 4
 #data is already trimmed so no need for -trim
 
@@ -159,9 +161,7 @@ done
 #there are 1600 piRNA reads in 01Bb_S6_R1_001.trim.cat
 #there are 1806 piRNA reads in 24A_S44_R1_001.trim.cat
 
-#this still could be simplified
-
-#count number of unannotated reads from each file
+#count number of unannotated reads from each file (should contain known and unknown piRNA reads)
 for group in *\#1; 
 do 
     echo $group; grep ">" $group/fasta/unitas.no-annotation.fas | wc -l; 
@@ -217,7 +217,7 @@ done
 module spider fastx-toolkit
 module load fastx-toolkit
 
-#convert uncollapsed _len files into fasta format for obtaining length and nucleotide distributions
+#convert collapsed _len files into fasta format (uncollapsed) for obtaining length and nucleotide distributions
 for file in len_filtered/*_len;
 do 
     fasta_formatter -t -i $file -o $file"_tab";
@@ -233,10 +233,15 @@ do
     awk '{print ">"$1"\n"$2}' $file > ${file%.*}".fa";
 done
 
+#basic analysis script requires uncollapsed fasta/fastq files for obtaining length and nucleotide distributions
 for file in len_filtered/*_expand.fa;
 do
     perl scripts/TBr2_basic-analyses.pl -i $file -o ${file%.*}""_len_expand_analysis.txt"";
 done
+
+#download all .txt files from len_filtered directory for plotting onto current local machine directory
+#this is done from a new terminal on the local machine
+scp -r rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/len_filtered/*.txt .
 
 #upload twoBitToFa tool (from http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/), Bos taurus genome, repeatmasker annotation and ENSEMBL geneset files to main directory on cluster
 #this is done from a new terminal on the local machine
@@ -252,10 +257,23 @@ done
 chmod 744 twoBitToFa
 ./twoBitToFa bosTau9.2bit bosTau9.fa
 
+#append "chr" to the start of all numbers in the first column for the gtf file to match repeatmasker and genome formats
+for file in *.gtf;
+do
+    awk 'OFS="\t" {if (NR > 5) $1="chr"$1}' $file;
+done
+
 #make map file directory
 mkdir maps
 
 #run sRNAmapper on len files (best alignments in terms of mismatch counts written for each sequence)
+#if run on interactive node, follow commands below:
+
+for file in len_filtered/*_len;
+do
+    perl scripts/sRNAmapper.pl -i $file -g bosTau9.fa -a best -o maps/$file.map;
+done
+
 #mapping should be submitted as an array job through SLURM scheduler using SBATCH
 touch job.sh
 nano job.sh
@@ -284,13 +302,87 @@ sbatch job.sh
 grep -r  "No such" *.out
 #increase allocated memory (#SBATCH --mem=) if oom-kill events occur in slurm output
 
-#append "chr" to the start of all numbers in the first column for the gtf file to match repeatmasker and genome formats
-for file in *.gtf;
+#run ping-pong check on non-weighted map files and rename new files with suffix _pp.txt (remove map suffix)
+#if run on interactive node, follow commands below:
+
+for file in maps/*.map;
 do
-    awk 'OFS="\t" {if (NR > 5) $1="chr"$1}' $file;
+    perl scripts/TBr2_pingpong.pl -i $file -o ${file%.*}"_pp.txt";
 done
 
-#run reallocation on new map files (perimeter of 5000, resolution of 1000, bell shape function and 0 to reject loci with no allocated reads)
+#ping-pong checks should be submitted as an array job through SLURM scheduler using SBATCH
+touch job4.sh
+nano job4.sh
+#the contents of this shell script should be as follows:
+
+#!/bin/bash
+#SBATCH --array=0-29
+#SBATCH --job-name=" pingpong"
+#SBATCH --time=01:00:00
+#SBATCH --mem=5000
+#SBATCH --account=def-jlamarre
+files=(maps/*.map)
+file=${files[$SLURM_ARRAY_TASK_ID]}
+
+echo $file
+
+module load perl
+perl scripts/TBr2_pingpong.pl -i $file -o ${file%.*}"_pp.txt"
+sleep 30
+
+#submit file as array job
+sbatch job4.sh
+
+#record terminal output
+script pingpong_log.txt
+
+#Analyzing map file maps/01Ba_S13_R1_001.trim.cat.down.fastq_#1.fas_len.map
+#This is a standard map file: +hits: 6401 / -hits: 6056
+
+#Analyzing map file maps/01Bb_S6_R1_001.trim.cat.down.fastq_#1.fas_len.map
+#This is a standard map file: +hits: 1790 / -hits: 2074
+
+#Analyzing map file maps/24A_S44_R1_001.trim.cat.down.fastq_#1.fas_len.map
+#This is a standard map file: +hits: 19447 / -hits: 19061
+
+#when all computations are complete, check SLURM output files if any errors occurred
+grep "error" *.out
+
+#make ping-pong directory
+mkdir pingpong
+
+#move ping-pong files to pingpong directory
+mv *_pp.txt pingpong/
+
+#download all .txt files from pingpong directory for plotting onto current local machine directory
+#this is done from a new terminal on the local machine
+scp -r rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/pingpong/* .
+
+#setup interactive node for repeatmasker
+salloc --time=2:30:0 --ntasks=2 --account=def-jlamarre
+
+#run repeatmasker annotation on non-weighted map files
+for file in maps/*.map;
+do
+    perl scripts/RMvsMAP.pl bosTau9.fa.out $file
+    name = $(basename ${file})
+    mv TE-fasta TE-fasta"_${name:0:4}"
+    mv repeat_counts.table "${name:0:4}"repeat_counts
+done
+
+#download all repeatmasker output files from current directory for plotting onto current local machine directory
+#this is done from a new terminal on the local machine
+scp -r rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/TE-fasta* .
+scp -r rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/*.table .
+
+#run reallocation on map files (perimeter of 5000, resolution of 1000, bell shape function and 0 to reject loci with no allocated reads)
+#if run on interactive node, follow commands below:
+
+for file in maps/*;
+do
+    perl scripts/reallocate.pl -i $file 5000 1000 b 0;
+done
+
 #reallocation should be submitted as an array job through SLURM scheduler using SBATCH
 touch job2.sh
 nano job2.sh
@@ -317,10 +409,14 @@ sbatch job2.sh
 #move reallocated files to maps directory
 mv *.weighted-5000-1000-b-0 maps/
 
-#make clustering directory
-mkdir clustering
+#run proTrac clustering on new weighted files using maximum piRNA length of 32 and output mapped reads as tab-delimited table
+#if run on interactive node, follow commands below:
 
-#run proTrac clustering on new weighted files using using maximum piRNA length of 32 and output mapped reads as tab-delimited table
+for file in maps/*.weighted-5000-1000-b-0;
+do
+    perl scripts/proTRAC_2.4.2.pl -map $file -genome bosTau9.fa -repeatmasker bosTau9.fa.out -geneset Bos_taurus.ARS-UCD1.2.106.chr.gtf -pimax 32 -pti;
+done
+
 #clustering should be submitted as an array job through SLURM scheduler using SBATCH
 touch job3.sh
 nano job3.sh
@@ -343,6 +439,9 @@ sleep 30
 
 #submit file as array job
 sbatch job3.sh
+
+#record terminal output
+script protrac_log.txt
 
 #minimum size of piRNA cluster set to 1000 bp (default)
 #genome size (without gaps): 2715825630 bp
@@ -379,53 +478,69 @@ sbatch job3.sh
 #Total repeat-masked bases in clusters: 470769 (35.79%)
 #Total repeat-masked bases in genome: 1348220998 (49.64%)
 
-#move proTrac files to clustering directory
+#make clustering directory and move proTrac files to clustering directory
+mkdir clustering
 mv pro* clustering/
 
-#make ping-pong directory
-mkdir pingpong
+#download all protrac files from clustering directory for plotting onto current local machine directory
+#this is done from a new terminal on the local machine
+scp -r rsivakum@graham.computecanada.ca:~/projects/def-jlamarre/rsivakum/6999/clustering/* .
 
-#run ping-pong check on non-weighted map files and rename new files with suffix _pp.txt (remove map suffix)
-#ping-pong checks should be submitted as an array job through SLURM scheduler using SBATCH
-touch job4.sh
-nano job4.sh
-#the contents of this shell script should be as follows:
+#all following steps are done on new terminal from local machine for preparing files for data visualization
+#assuming all downloaded files are in same folder
 
-#!/bin/bash
-#SBATCH --array=0-29
-#SBATCH --job-name=" pingpong"
-#SBATCH --time=01:00:00
-#SBATCH --mem=5000
-#SBATCH --account=def-jlamarre
-files=(maps/*.map)
-file=${files[$SLURM_ARRAY_TASK_ID]}
-
-echo $file
-
-module load perl
-perl scripts/TBr2_pingpong.pl -i $file -o ${file%.*}"_pp.txt"
-sleep 30
-
-#submit file as array job
-sbatch job4.sh
-
-#Analyzing map file maps/01Ba_S13_R1_001.trim.cat.down.fastq_#1.fas_len.map
-#This is a standard map file: +hits: 6401 / -hits: 6056
-
-#Analyzing map file maps/01Bb_S6_R1_001.trim.cat.down.fastq_#1.fas_len.map
-#This is a standard map file: +hits: 1790 / -hits: 2074
-
-#Analyzing map file maps/24A_S44_R1_001.trim.cat.down.fastq_#1.fas_len.map
-#This is a standard map file: +hits: 19447 / -hits: 19061
-
-#when all computations are complete, check SLURM output files if any errors occurred
-grep "error" *.out
-
-#move ping-pong files to pingpong directory
-mv *_pp.txt pingpong/
-
-#run repeatmasker annotation on non-weighted map files
-for file in maps/*.map;
+#for plotting read length distributions, remove first 5 lines, everything after first 10 lines and remove 3rd column
+for file in *_analysis.txt; 
 do
-    perl scripts/RMvsMAP.pl bosTau9.fa.out $file;
+    sed -i 1,5d $file
+    head -n 10 "$file" > "$file.10" && mv "$file.10" "$file"
+    cut -f1,2 "$file" > "$file.cut" && mv "$file.cut" "$file"
+done
+
+#for plotting ping-pong results, remove first 2 lines and everything after first 32 lines
+for file in *_pp.txt;
+do 
+    sed -i 1,2d $file
+    head -n 32 "$file" > "$file.32" && mv "$file.32" "$file"
+done
+
+#for plotting cluster expressions, remove file name prefix, first 72 lines and last 4 lines. Also extract columns 1, 2 and 6
+for file in *.table; 
+do
+    mv $file ${file#proTRAC_}
+    sed -i 1,72d $file
+    head -n -4 $file > "$file.-4" && mv "$file.-4" "$file"
+    cut -f1,2,6 "$file" > "$file.cut" && mv "$file.cut" "$file"
+done
+
+#manually move high fertility files (15 - 25) to temporary folder and add fertility labels
+mkdir temporary
+for file in temporary*; 
+do
+    sed -i "s/$/\t"high"/" $file;
+done
+
+#add low fertility labels to low fertility files in current directory (01 - 14)
+cd ..
+for file in *; 
+do
+    sed -i "s/$/\t"low"/" $file;
+done
+
+#add headers to each column for both sets of files (current and temporary directory)
+for file in *; 
+do
+    echo -e 'Cluster\tChromosome\tNormalized_Hits\tFertility' | cat - $file > temp && mv temp $file;
+done
+
+for file in temporary*; 
+do
+    echo -e 'Cluster\tChromosome\tNormalized_Hits\tFertility' | cat - $file > temp && mv temp $file;
+done
+
+#for plotting TE targets remove lines 2 - 14072 and last 3 lines
+for file in *repeat.table; 
+do
+    sed -i 2,14072d $file
+    head -n -3 $file > "$file.-3" && mv "$file.-3" "$file"
 done
