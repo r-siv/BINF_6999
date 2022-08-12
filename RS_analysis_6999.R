@@ -3,8 +3,7 @@ library("ggExtra")
 library("tidyverse")
 library("dplyr")
 library("tidyr")
-library("ggrepel")
-library("directlabels")
+library("rstatix")
 
 #length distributions----
 
@@ -43,6 +42,7 @@ ggplot(newtable,aes(x=length,y=distribution, group=sample, color=Fertility,
                     label=sample)) +
   geom_line(size = 0.9) +
   geom_point(size = 1.9 ,alpha = 0.7) +
+  theme_bw() +
   removeGridX() +
   scale_x_continuous(breaks=seq(24,32,1)) +
   scale_y_continuous(breaks=seq(0,40,2)) +
@@ -50,7 +50,8 @@ ggplot(newtable,aes(x=length,y=distribution, group=sample, color=Fertility,
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(text = element_text(size = 20)) +
   ylab("Read Count Percentages (Proportion per sample)") +
-  xlab("Read Length")
+  xlab("Read Length") +
+  theme(legend.position = "bottom")
 
 #ping-pong analysis----
 
@@ -93,6 +94,7 @@ newtable2$Fertility = as.factor(ifelse(newtable2$sample %in% high_fertility,
 #plot ping pong overlap distribution
 ggplot(newtable2,aes(x=overlap,y=read_pairs,fill=Fertility)) +
   geom_bar(position = "dodge",stat="identity") +
+  theme_bw() +
   removeGridX() +
   scale_x_continuous(breaks=seq(1,14,1)) +
   scale_y_continuous(breaks=seq(0,1,0.1)) +
@@ -101,7 +103,47 @@ ggplot(newtable2,aes(x=overlap,y=read_pairs,fill=Fertility)) +
   theme(text = element_text(size = 18)) +
   theme(plot.title = element_text(size=17)) +
   ylab("Normalized Read Pair Counts") +
-  xlab("Overlap Length")
+  xlab("Overlap Length")+
+  theme(legend.position = "bottom")
+
+#pingpong z-scores
+#generating data frame from Z-score values
+zscoresdataframe = data.frame(Z_Score = c(5.18500831671655,22.4375016494233,
+                                          30.02752602621,-0.604257960862786,
+                                          9.26720930799129,33.7005133929326,
+                                          0.198500168812854,2.75038541104538,
+                                          15.3455393682021,38.7255160652387,
+                                          2.93468257373282,7.05967034064722,
+                                          2.84804109723292),
+                              Samples = c("02A","04A","07Da","11A","13A","14B",
+                                          "15A","20A","21A","22A","23A","24A",
+                                          "25A"))
+
+zscoresdataframe$Fertility = as.factor(ifelse(zscoresdataframe$Samples %in% high_fertility,
+                                              "High", "Low"))
+str(zscoresdataframe)
+summary(zscoresdataframe)
+
+#plotting Z-scores
+ggplot(zscoresdataframe,aes(x = Samples,y = Z_Score, fill = Fertility)) +
+  geom_col() +
+  theme_bw() +
+  removeGridX() +
+  ggtitle("Z-Scores for Ping-Pong Overlaps between Low and High Fertility Samples") +
+  scale_y_continuous(breaks=seq(-1,40,6)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(text = element_text(size = 18)) +
+  theme(plot.title = element_text(size=17)) +
+  ylab("Z Scores") +
+  xlab("Samples")+
+  theme(legend.position = "bottom")
+
+#normality testing
+shapiro.test(zscoresdataframe$Z_Score)
+
+#testing for differences in Z-Scores between fertility states
+t.test(zscoresdataframe$Z_Score ~ zscoresdataframe$Fertility, 
+       data = zscoresdataframe)
 
 #Cluster expression----
 
@@ -135,6 +177,7 @@ table3LHX<-split(table3, table3$Fertility)
 ggplot(data=table3LHX$high,aes(x=Chromosome)) +
   geom_bar(fill = "#F8766D") +
   ggtitle("piRNA Cluster Expression Across Chromosomes (high fertility)") +
+  theme_bw() +
   removeGridX() +
   scale_y_continuous(breaks=seq(0,500,25)) +
   scale_x_discrete() +
@@ -149,6 +192,7 @@ ggplot(data=table3LHX$high,aes(x=Chromosome)) +
 ggplot(data=table3LHX$low,aes(x=Chromosome)) +
   geom_bar(fill = "#00BFC4") +
   ggtitle("piRNA Cluster Expression Across Chromosomes (low fertility)") +
+  theme_bw() +
   removeGridX() +
   scale_y_continuous(breaks=seq(0,500,25)) +
   scale_x_discrete() +
@@ -161,17 +205,19 @@ ggplot(data=table3LHX$low,aes(x=Chromosome)) +
 
 #plot cluster expression for all fertility samples
 ggplot(data=table3,aes(x=Chromosome,fill=Fertility)) +
-  geom_bar() +
+  geom_bar(position = "dodge") +
   ggtitle("piRNA Cluster Expression Across Chromosomes") +
+  theme_bw() +
   removeGridX() +
-  scale_y_continuous(breaks=seq(0,500,25)) +
+  scale_y_continuous(breaks=seq(0,80,10)) +
   scale_x_discrete() +
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(text = element_text(size = 21)) +
-  ylab("Normalized Read Counts") +
+  ylab("Number of Clusters") +
   xlab("Chromosome")+
   theme(axis.text.x = element_text(size = 21, angle = 90, 
-                                   hjust = 0.95,vjust = 0.2))
+                                   hjust = 0.95,vjust = 0.2))+
+  theme(legend.position = "bottom")
 
 #TE representation----
 
@@ -217,23 +263,27 @@ ggplot(data=table4,aes(x=TE,y=Sense,fill=Fertility)) +
   geom_bar(position = "dodge",stat="identity") +
   coord_flip() +
   ggtitle("piRNA-TE Representation (Sense)") +
+  theme_bw() +
   removeGridX() +
   removeGridY() +
   scale_y_continuous(breaks=seq(0,80,10)) +
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(text = element_text(size = 18)) +
   ylab("Read Pair Counts (thousands)") +
-  xlab("Predicted TE targets")
+  xlab("Predicted TE targets")+
+  theme(legend.position = "bottom")
 
 #plot TE targets for antisense direction
 ggplot(data=table4,aes(x=TE,y=Antisense,fill=Fertility)) +
   geom_bar(position = "dodge",stat="identity") +
   coord_flip() +
   ggtitle("piRNA-TE Representation (Antisense)") +
+  theme_bw() +
   removeGridX() +
   removeGridY() +
   scale_y_continuous(breaks=seq(0,80,10)) +
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(text = element_text(size = 18)) +
   ylab("Read Pair Counts (thousands)") +
-  xlab("Predicted TE targets")
+  xlab("Predicted TE targets")+
+  theme(legend.position = "bottom")
