@@ -4,6 +4,7 @@ library("tidyverse")
 library("dplyr")
 library("tidyr")
 library("rstatix")
+library("car")
 
 #length distributions----
 
@@ -142,8 +143,7 @@ ggplot(zscoresdataframe,aes(x = Samples,y = Z_Score, fill = Fertility)) +
 shapiro.test(zscoresdataframe$Z_Score)
 
 #testing for differences in Z-Scores between fertility states
-t.test(zscoresdataframe$Z_Score ~ zscoresdataframe$Fertility, 
-       data = zscoresdataframe)
+wilcox.test(zscoresdataframe$Z_Score ~ zscoresdataframe$Fertility)
 
 #Cluster expression----
 
